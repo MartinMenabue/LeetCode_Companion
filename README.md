@@ -11,7 +11,7 @@ sudo apt-get install python3 python3-pip
 pip3 install -r requirements.txt
 ```
 
-* Run the following command to prepare the problem
+* Run the following command to prepare the problem:
 ```bash
 python3 main.py prepare <problem_name>
 ```
@@ -30,13 +30,13 @@ A directory named `merge-sorted-array` will be created in the `problems` directo
 
 * Open the `solution.py` file in your favourite IDE and start solving the problem!
 
-* Run the following command to test your solution
+* Run the following command to test your solution:
 ```bash
 python3 main.py run <problem_name>
 ```
 where `<problem_name>` is the name of the problem you want to test.
 
-* If you want to submit your solution, run the following command
+* If you want to submit your solution, run the following command:
 ```bash
 python3 main.py submit <problem_name>
 ```
