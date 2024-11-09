@@ -20,6 +20,8 @@ def check_login(args, session):
         print('Please, login to your LeetCode account.')
         print('Press F12 to open the developer console.')
         print('Go to the Application tab.')
+        print('Expand "Cookies" on the left.')
+        print('Click on the "https://leetcode.com" link.')
         print('Copy the LEETCODE_SESSION cookie and paste it here.')
         login_path = f'{base_url}/accounts/login/'
         webbrowser.open(login_path)

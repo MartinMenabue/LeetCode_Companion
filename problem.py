@@ -152,6 +152,68 @@ def get_problem_id(args, session, problem_name):
     id = res.json()['data']['question']['questionId']
     return id
 
+def get_submission_details(args, session, submission_id):
+    data = {
+        'operationName': 'submissionDetails',
+        'variables': {
+            'submissionId': submission_id
+        },
+        'query': '''\n    query submissionDetails($submissionId: Int!) {\n  submissionDetails(submissionId: $submissionId) {\n    runtime\n    runtimeDisplay\n    runtimePercentile\n    runtimeDistribution\n    memory\n    memoryDisplay\n    memoryPercentile\n    memoryDistribution\n    code\n    timestamp\n    statusCode\n    user {\n      username\n      profile {\n        realName\n        userAvatar\n      }\n    }\n    lang {\n      name\n      verboseName\n    }\n    question {\n      questionId\n      titleSlug\n      hasFrontendPreview\n    }\n    notes\n    flagType\n    topicTags {\n      tagId\n      slug\n      name\n    }\n    runtimeError\n    compileError\n    lastTestcase\n    codeOutput\n    expectedOutput\n    totalCorrect\n    totalTestcases\n    fullCodeOutput\n    testDescriptions\n    testBodies\n    testInfo\n    stdOutput\n  }\n}\n    '''
+    }
+    res = session.post(f'{base_url}/graphql/', json=data)
+    details = res.json()['data']['submissionDetails']
+    return details
+
+def handle_result(args, session, problem_name, submission_id, submit=True):
+    while True:
+        headers = {
+            'Referer': f'{base_url}/problems/{problem_name}/',
+            'X-Csrftoken': session.cookies['csrftoken']
+        }
+        res = session.get(f'{base_url}/submissions/detail/{submission_id}/check/', headers=headers)
+        if res.status_code != 200:
+            raise Exception('Error in getting the submission result')
+        state = res.json()['state']
+        if state == 'PENDING' or state == 'STARTED':
+            print('Waiting for result...')
+            time.sleep(1)
+        else:
+            break
+    if state == 'FAILURE':
+        print('#### FAILURE ####')
+        print(res.json())
+    if state == 'SUCCESS':
+        status_msg = res.json()['status_msg']
+        if status_msg.lower() == 'wrong answer':
+            print('#### WRONG ANSWER ####')
+            print('Your solution is incorrect')
+            total_correct = res.json()['total_correct']
+            total_testcases = res.json()['total_testcases']
+            print(f'You solved {total_correct} out of {total_testcases} test cases')
+            last_testcase = res.json()['last_testcase']
+            code_output = res.json()['code_output']
+            std_output = res.json()['std_output'].strip()
+            expected_output = res.json()['expected_output']
+            print(f'Last testcase input: {last_testcase}')
+            if std_output:
+                print(f'Stdout: {std_output}')
+            print(f'Expected output: {expected_output}')
+            print(f'Your output: {code_output}')
+        elif status_msg.lower() == 'accepted':
+            print('#### CORRECT ANSWER ####')
+            if submit:
+                print('Congratulations! You solved the problem!')
+            else:
+                print('Your solution passed all the provided test cases. You can now submit the solution')
+        elif status_msg.lower() == 'runtime error':
+            print('#### RUNTIME ERROR ####')
+            print('Your solution encountered a runtime error')
+            runtime_error = res.json()['runtime_error']
+            print(f'Error: {runtime_error}')
+        else:
+            print('Unexpected status message')
+    else:
+        print('Something went wrong, please try again')
 
 def interpret_solution(args, session, problem_name):
     problem_id = get_problem_id(args, session, problem_name)
@@ -178,27 +240,7 @@ def interpret_solution(args, session, problem_name):
     print('Solution submitted successfully')
     interpret_id = res.json()['interpret_id']
     test_case = res.json()['test_case']
-    while True:
-        headers = {
-            'Referer': f'{base_url}/problems/{problem_name}/',
-            'X-Csrftoken': session.cookies['csrftoken']
-        }
-        res = session.get(f'{base_url}/submissions/detail/{interpret_id}/check/', headers=headers)
-        if res.status_code != 200:
-            raise Exception('Error in getting the submission result')
-        state = res.json()['state']
-        if state == 'PENDING':
-            print('Waiting for result...')
-            time.sleep(1)
-        else:
-            break
-    if state == 'FAILURE':
-        print('#### FAILURE ####')
-        print(res.json())
-    if state == 'SUCCESS':
-        print('#### SUCCESS ####')
-        print('You successfully solved the problem with the provided test cases')
-        #print(res.json())
+    handle_result(args, session, problem_name, interpret_id, submit=False)
     
 def submit_solution(args, session, problem_name):
     problem_id = get_problem_id(args, session, problem_name)
@@ -220,26 +262,7 @@ def submit_solution(args, session, problem_name):
         raise Exception('Error in submitting the solution')
     print('Solution submitted successfully')
     submission_id = res.json()['submission_id']
-    while True:
-        headers = {
-            'Referer': f'{base_url}/problems/{problem_name}/',
-            'X-Csrftoken': session.cookies['csrftoken']
-        }
-        res = session.get(f'{base_url}/submissions/detail/{submission_id}/check/', headers=headers)
-        if res.status_code != 200:
-            raise Exception('Error in getting the submission result')
-        state = res.json()['state']
-        if state == 'PENDING':
-            print('Waiting for result...')
-            time.sleep(1)
-        else:
-            break
-    if state == 'FAILURE':
-        print('#### FAILURE ####')
-        print(res.json())
-    if state == 'SUCCESS':
-        print('#### SUCCESS ####')
-        print('Congratulations! You solved the problem!')
+    handle_result(args, session, problem_name, submission_id)
 
 
     
