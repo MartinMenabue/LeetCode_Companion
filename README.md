@@ -28,23 +28,21 @@ A directory named `merge-sorted-array` will be created in the `problems` directo
   2. `solution.py`: The solution template.
   3. `testcases.json`: The testcases for the problem.
 
-* Open the `solution.py` file in your favourite IDE and start solving the problem!
+* Open the `solution.py` file in your favourite IDE and start solving the problem! You can also debug your solution through the IDE.
 
-* Run the following command to test your solution:
+* Run the following command to test your solution on the LeetCode server with the testcases provided by LeetCode:
 ```bash
 python3 main.py run <problem_name>
 ```
-where `<problem_name>` is the name of the problem you want to test.
 
 * If you want to submit your solution, run the following command:
 ```bash
 python3 main.py submit <problem_name>
 ```
-where `<problem_name>` is the name of the problem you want to submit.
 
 ## Limitations
 * This project only supports Python 3. Maybe in the future, we will support other languages.
-
+* The supported system is Linux. We have not tested this project on other systems.
 
 
 
