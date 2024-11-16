@@ -12,31 +12,65 @@ from utils import write_to_file
 def prepare_problem(args, session, problem_name):
     desc = get_problem_description(args, session, problem_name)
     desc = md(desc)
-    code = get_problem_code(args, session, problem_name)
-    func_name = re.findall(r'def (.*)\(', code)[0]
-    testcases, params = get_problem_testcases(args, session, problem_name)
+    code_str = get_problem_code(args, session, problem_name)
+    testcases, metadata = get_problem_testcases_and_metadata(args, session, problem_name)
+    final_testcases_str = '[\n'
+    if 'name' in metadata:
+        func_name = metadata['name']
+        params_info = metadata['params']
+        testcases_str = '    s = Solution()\n'
+        for i, testcase in enumerate(testcases):
+            lines = testcase.split('\n')
+            l = []
+            final_testcases_str += '    {'
+            for p_idx, line in enumerate(lines):
+                pname = params_info[p_idx]['name']
+                ptype = params_info[p_idx]['type']
+                l.append(f'{pname}={line}')
+                final_testcases_str += f'"{pname}": {line}'
+                if p_idx < len(lines) - 1:
+                    final_testcases_str += ', '
+            final_testcases_str += '},\n' if i < len(testcases) - 1 else '}\n'
+            testcases_str += f'    s.{func_name}({", ".join(l)})\n'
+    elif 'classname' in metadata:
+        classname = metadata['classname']
+        constructor_params = metadata['constructor']['params']
+        testcases_str = ''
+        for i, testcase in enumerate(testcases):
+            names = json.loads(testcase.split('\n')[0])
+            values = json.loads(testcase.split('\n')[1])
+            final_testcases_str += '    {\n'
+            final_testcases_str += f'        "names": {json.dumps(names)},\n        "values": {json.dumps(values)}\n'
+            final_testcases_str += '    },\n' if i < len(testcases) - 1 else '    }\n'
+
+            constructor_args = values[0]
+            if constructor_args:
+                constructor_args = ', '.join([str(v) for v in constructor_args])
+            else:
+                constructor_args = ''
+            testcases_str += f'    obj = {classname}({constructor_args})\n'
+            for idx, (name, value) in enumerate(zip(names[1:], values[1:])):
+                if value:
+                    value = ', '.join([str(v) for v in value])
+                else:
+                    value = ''
+                testcases_str += f'    obj.{name}({value})\n'
+    else:
+        raise Exception(f'Could not prepare problem {problem_name}')
+
+    final_testcases_str += ']'
+
+    code = 'from typing import List, Tuple, Dict, Any'
+    code += '\n\n'
+    code += f'{code_str}\n\n'
+    code += '''if __name__ == '__main__':\n'''
+    code += f'{testcases_str}\n'
+
     target_dir = os.path.join(os.getcwd(), 'problems', problem_name)
     os.makedirs(target_dir, exist_ok=True)
     write_to_file(os.path.join(target_dir, 'README.md'), desc)
-    params_strings = []
-    for i, param in enumerate(params):
-        ps = ', '.join([f'{k}={v}' for k, v in param.items()])
-        params_strings.append(ps)
-    code = f'''from typing import List, Tuple, Dict, Any
-
-{code}
-
-if __name__ == '__main__':
-    s = Solution()
-'''
-    for i, ps in enumerate(params_strings):
-        code += f'    s.{func_name}({ps})\n'
     write_to_file(os.path.join(target_dir, 'solution.py'), code)
-    tmp = '[\n'
-    for idx, pinfo in enumerate(params):
-        tmp += f'    {json.dumps(pinfo)},\n' if idx < len(params) - 1 else f'    {json.dumps(pinfo)}\n'
-    tmp += ']'
-    write_to_file(os.path.join(target_dir, 'testcases.json'), tmp)
+    write_to_file(os.path.join(target_dir, 'testcases.json'), final_testcases_str)
     
     print(f'Problem {problem_name} prepared in {target_dir}')
 
@@ -49,7 +83,6 @@ def get_problem_description(args, session, problem_name):
         'query': '''query questionContent($titleSlug: String!) {
                         question(titleSlug: $titleSlug) {
                             content
-                            exampleTestcaseList
                             mysqlSchemas
                             dataSchemas
                         }
@@ -59,7 +92,7 @@ def get_problem_description(args, session, problem_name):
     html = res.json()['data']['question']['content']
     return html
 
-def get_problem_testcases(args, session, problem_name):
+def get_problem_testcases_and_metadata(args, session, problem_name):
     data = {
         'operationName': 'questionTestcases',
         'variables': {
@@ -75,18 +108,7 @@ def get_problem_testcases(args, session, problem_name):
     res = session.post(f'{base_url}/graphql/', json=data)
     testcases = res.json()['data']['question']['exampleTestcaseList']
     metadata = json.loads(res.json()['data']['question']['metaData'])
-    params_info = metadata['params']
-    params = []
-    for i, testcase in enumerate(testcases):
-        params.append({})
-        lines = testcase.split('\n')
-        for p_idx, line in enumerate(lines):
-            pname = params_info[p_idx]['name']
-            ptype = params_info[p_idx]['type']
-            pval = eval(line)
-            params[-1][pname] = pval
-
-    return testcases, params
+    return testcases, metadata
 
 def get_problem_code(args, session, problem_name):
     data = {
@@ -215,14 +237,23 @@ def handle_result(args, session, problem_name, submission_id, submit=True):
     else:
         print('Something went wrong, please try again')
 
-def interpret_solution(args, session, problem_name):
-    problem_id = get_problem_id(args, session, problem_name)
+def get_typed_code(args, session, problem_name, metadata):
+    if 'classname' in metadata:
+        classname = metadata['classname']
+    elif 'name' in metadata:
+        classname = 'Solution'
+    else:
+        raise Exception('Could not find the class name')
     module_name = f'problems.{problem_name}.solution'
     module = importlib.import_module(module_name)
     # get the solution code
-    typed_code = inspect.getsource(module.Solution)
-    # get the testcases
-    testcases, params = get_problem_testcases(args, session, problem_name)
+    typed_code = inspect.getsource(getattr(module, classname))
+    return typed_code
+
+def interpret_solution(args, session, problem_name):
+    problem_id = get_problem_id(args, session, problem_name)
+    testcases, metadata = get_problem_testcases_and_metadata(args, session, problem_name)
+    typed_code = get_typed_code(args, session, problem_name, metadata)
     testcases = '\n'.join(testcases)
     data = {
         'typed_code': typed_code,
@@ -244,10 +275,8 @@ def interpret_solution(args, session, problem_name):
     
 def submit_solution(args, session, problem_name):
     problem_id = get_problem_id(args, session, problem_name)
-    module_name = f'problems.{problem_name}.solution'
-    module = importlib.import_module(module_name)
-    # get the solution code
-    typed_code = inspect.getsource(module.Solution)
+    testcases, metadata = get_problem_testcases_and_metadata(args, session, problem_name)
+    typed_code = get_typed_code(args, session, problem_name, metadata)
     data = {
         'typed_code': typed_code,
         'lang': 'python3',
