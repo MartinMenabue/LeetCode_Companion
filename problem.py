@@ -232,6 +232,11 @@ def handle_result(args, session, problem_name, submission_id, submit=True):
             print('Your solution encountered a runtime error')
             runtime_error = res.json()['runtime_error']
             print(f'Error: {runtime_error}')
+        elif status_msg.lower() == 'time limit exceeded':
+            print('#### TIME LIMIT EXCEEDED ####')
+            last_testcase = res.json()['last_testcase']
+            print(f'Last testcase input: {last_testcase}')
+            print('Your solution exceeded the time limit')
         else:
             print('Unexpected status message')
     else:
