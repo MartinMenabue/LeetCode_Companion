@@ -3,8 +3,6 @@
 Ever wanted to solve [LeetCode](https://leetcode.com/) problems with your favourite IDE? This project is for you!
 
 ## Quickstart
-* Install [curl-impersonate](https://github.com/lwthiker/curl-impersonate). You can download the binaries from the [releases page](https://github.com/lwthiker/curl-impersonate/releases) and place them, for example, in `/usr/local/bin/`.
-
 * Install the required dependencies:
 ```bash
 sudo apt-get install python3 python3-pip
@@ -41,7 +39,7 @@ python3 main.py submit <problem_name>
 ```
 
 ## Limitations
-* This project only supports Python 3. Maybe in the future, we will support other languages.
+* This project only supports Python 3. Maybe, in the future, we will support other languages.
 * The supported system is Linux. We have not tested this project on other systems.
 
 

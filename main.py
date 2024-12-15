@@ -1,5 +1,5 @@
 import argparse
-from curl_cffi import requests
+import requests
 from utils import base_url, check_login
 from problem import prepare_problem, interpret_solution, submit_solution
 

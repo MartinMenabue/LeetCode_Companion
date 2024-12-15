@@ -1,7 +1,7 @@
 import webbrowser
 from pathlib import Path
 import os
-import re
+import jwt
 
 base_url = 'https://leetcode.com'
 
@@ -26,24 +26,29 @@ def check_login(args, session):
         login_path = f'{base_url}/accounts/login/'
         webbrowser.open(login_path)
         leetcode_session = input('LEETCODE_SESSION: ')
-        with open(sess_path, 'w') as f:
-            f.write(leetcode_session)
+    else:
+        with open(sess_path, 'r') as f:
+            leetcode_session = f.read()
     
-    # check if the session token is valid
-    with open(sess_path, 'r') as f:
-        leetcode_session = f.read()
-    session.cookies['LEETCODE_SESSION'] = leetcode_session
-    response = session.get(f'{base_url}/profile/', impersonate="chrome")
-    try:
-        ret = re.findall(r'realName: \'(.*)\'', response.text)[0]
-        target_path = Path.home() / '.leetcode_session'
-        with open(target_path, 'w') as f:
-            f.write(leetcode_session)
-    except:
-        print('Invalid LEETCODE_SESSION cookie. Please rerun the script.')
-        os.remove(sess_path)
-        exit(1)
-    verboseprint(f'Welcome, {ret}!')
+    while True:
+        try:
+            ret = jwt.decode(leetcode_session, algorithms=["HS256"], options={"verify_signature": False})
+            username = ret['username']
+            session.cookies['LEETCODE_SESSION'] = leetcode_session
+            ret = get_user_real_name(args, session)
+            if ret is not None:
+                break
+            else:
+                raise Exception
+        except:
+            print('Invalid LEETCODE_SESSION cookie. Please provide a correct one.')
+            if os.path.exists(sess_path):
+                os.remove(sess_path)
+            leetcode_session = input('LEETCODE_SESSION: ')
+
+    with open(sess_path, 'w') as f:
+        f.write(leetcode_session)
+    verboseprint(f'Welcome, {username}!')
 
 def get_user_api_token(args, session):
     data = {
@@ -58,3 +63,24 @@ def get_user_api_token(args, session):
     res = session.post(f'{base_url}/graphql/', json=data)
     api_token = res.json()['data']['generateLeetcodeUserApiToken']['token']
     return api_token
+
+def get_user_real_name(args, session):
+    data = {
+        'operationName': 'userRealName',
+        'variables': {},
+        'query': '''query userRealName {
+                        user {
+                            profile {
+                            realName
+                            __typename
+                            }
+                            __typename
+                        }
+                    }'''
+    }
+    res = session.post(f'{base_url}/graphql/', json=data)
+    try:
+        real_name = res.json()['data']['user']['profile']['realName']
+    except:
+        return None
+    return real_name
